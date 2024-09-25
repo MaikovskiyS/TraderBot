@@ -9,25 +9,24 @@ import (
 
 func (s *tradingService) ManagePosition(ctx context.Context, p *domain.Position) error {
 	s.Log.Debug().Any("current position", p).Send()
-	// Str("ticker", p.Symbol).
-	// Float64("mark price", p.MarkPrice).
-	// Float64("avg price", p.AvgPrice).
-	// Str("PNL", p.UnrealisedPnl).
-	// Msg("current position")
 
-	// Если позиция прошла 30% до takeProfit, фиксируем половину и обновляем stopLoss до точки входа
+	// Если позиция прошла 50% до takeProfit, обновляем stopLoss до точки входа
 	ordersResp, err := s.GetOpenOrders(ctx)
 	if err != nil {
 		return fmt.Errorf("get open orders: %w", err)
 	}
 
+	if ordersResp.Orders == nil || len(ordersResp.Orders) == 0 {
+		return ErrNoOrders
+	}
+
 	var takeProfitOrder *domain.Order
 	var stopOrdersLen int64
 	for _, order := range ordersResp.Orders {
-		// s.Log.Debug().Any("order", order).Send()
 		if order.StopOrderType == domain.PartialTakeProfitOrderType {
 			takeProfitOrder = order
 		} else {
+			// для игнора последующих попыток изменить stoploss
 			stopOrdersLen += 1
 		}
 	}
@@ -74,24 +73,27 @@ func (s *tradingService) ClosePositionPartially(ctx context.Context, position *d
 	}
 	s.Log.Debug().Msg("stop loss updated")
 
-	// err = s.Provider.SetTakeProfit(ctx, &SetTpParams{
-	// 	Symbol:     position.Symbol,
-	// 	Side:       position.Side,
-	// 	TakeProfit: convertPriceToString(position.MarkPrice, position.Precision),
-	// 	Size:       fmt.Sprintf("%v", customRound(position.Size/2)),
-	// })
-	// if err != nil {
-	// 	return fmt.Errorf("set take profit: %w", err)
-	// }
-	// s.Log.Debug().Float64("mark price", position.MarkPrice).Msg("take profit updated")
-
-	// закрыть пол позиции
-	// переставить stop-loss
-
 	return nil
 }
 
 /*
+
+	err = s.Provider.SetTakeProfit(ctx, &SetTpParams{
+		Symbol:     position.Symbol,
+		Side:       position.Side,
+		TakeProfit: convertPriceToString(position.MarkPrice, position.Precision),
+		Size:       fmt.Sprintf("%v", customRound(position.Size/2)),
+	})
+	if err != nil {
+		return fmt.Errorf("set take profit: %w", err)
+	}
+	s.Log.Debug().Float64("mark price", position.MarkPrice).Msg("take profit updated")
+
+	закрыть пол позиции
+	переставить stop-loss
+
+
+
 	var stopOrderID string
 	var stopOrderLinkID string
 	var takeOrderID string

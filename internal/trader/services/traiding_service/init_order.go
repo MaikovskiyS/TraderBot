@@ -8,7 +8,10 @@ import (
 	"github.com/MaikovskiyS/TraderBot/internal/domain"
 )
 
-const riskPercentage = 1.00
+const (
+	riskPercentage = 1.00
+	profitoss      = 2
+)
 
 func (s *tradingService) InitOrder(ctx context.Context, req *CreateOrderRequest) error {
 	balance, err := s.Provider.GetBalance(ctx)
@@ -22,47 +25,10 @@ func (s *tradingService) InitOrder(ctx context.Context, req *CreateOrderRequest)
 		return err
 	}
 
-	params := createOrderParams(req, balance)
-
-	s.Log.Debug().Any("order params", params).Send()
-
-	return s.Provider.CreateOrder(ctx, params)
+	return s.Provider.CreateOrder(ctx, s.createOrderParams(req, balance))
 }
 
-func (s *tradingService) IsTradeAvaliable(ctx context.Context, ticker string) (bool, error) {
-	info, err := s.Provider.GetPositionInfo(ctx)
-	if err != nil {
-		return false, fmt.Errorf("get positions: %w", err)
-	}
-
-	if len(info.Positions) >= 1 {
-		return false, ErrPositionAlreadyExist
-	}
-
-	for _, info := range info.Positions {
-		if string(info.Symbol) == ticker {
-			return false, ErrPositionAlreadyExist
-		}
-	}
-
-	respOrders, err := s.Provider.GetOpenClosedOrdersByTicker(ctx, ticker)
-	if err != nil {
-		return false, fmt.Errorf("get orders: %w", err)
-	}
-
-	if len(respOrders.Orders) >= 1 {
-		return false, ErrOrderAlreadyExist
-	}
-
-	for _, order := range respOrders.Orders {
-		if order.Symbol == ticker {
-			return false, ErrOrderAlreadyExist
-		}
-	}
-
-	return true, nil
-}
-func createOrderParams(req *CreateOrderRequest, balance float64) *CreateOrderParams {
+func (s *tradingService) createOrderParams(req *CreateOrderRequest, balance float64) *CreateOrderParams {
 	var takeProfit string
 
 	stopLoss := calculateOrderStopLoss(req.TargetCandle, req.Side)
@@ -86,6 +52,42 @@ func createOrderParams(req *CreateOrderRequest, balance float64) *CreateOrderPar
 		Side:       req.Side,
 	}
 }
+
+// func (s *tradingService) calculateStopLossByOrderBook(side domain.Side) (float64, error) {
+// 	s.Provider.GetOrderBook()
+
+// 	// Выбираем подходящие ордера: для лонга - Bids, для шорта - Asks
+// 	if side == domain.BuySide {
+// 		for _, bid := range orderBook.Bids {
+// 			if bid.Price < pivotPrice && bid.Price >= pivotPrice-rangeLimit {
+// 				targetOrders = append(targetOrders, bid)
+// 			}
+// 		}
+// 	} else {
+// 		for _, ask := range orderBook.Asks {
+// 			if ask.Price > pivotPrice && ask.Price <= pivotPrice+rangeLimit {
+// 				targetOrders = append(targetOrders, ask)
+// 			}
+// 		}
+// 	}
+
+// 	if len(targetOrders) == 0 {
+// 		return 0, fmt.Errorf("no orders found in the specified range")
+// 	}
+
+// 	// Ищем уровень с наибольшим количеством ордеров
+// 	maxQuantity := 0.0
+// 	stopLossPrice := 0.0
+
+// 	for _, order := range targetOrders {
+// 		if order.Quantity > maxQuantity {
+// 			maxQuantity = order.Quantity
+// 			stopLossPrice = order.Price
+// 		}
+// 	}
+
+// 	return stopLossPrice, nil
+// }
 
 func calculateOrderQuantity(balance, entryPrice, stopLossPrice float64) string {
 	// Вычисляем максимальный допустимый убыток
@@ -122,9 +124,9 @@ func calculateTakeProfit(entryPrice, stopLossPrice float64, side domain.Side) fl
 	// Рассчитываем цель (take profit) с соотношением риск/прибыль 1:3
 	takeProfit := 0.0
 	if side == domain.BuySide {
-		takeProfit = entryPrice + 3*risk
+		takeProfit = entryPrice + profitoss*risk
 	} else if side == domain.SellSide {
-		takeProfit = entryPrice - 3*risk
+		takeProfit = entryPrice - profitoss*risk
 	}
 
 	return takeProfit
@@ -167,4 +169,38 @@ func customRound(value float64) float64 {
 	}
 
 	return value
+}
+
+func (s *tradingService) IsTradeAvaliable(ctx context.Context, ticker string) (bool, error) {
+	info, err := s.Provider.GetPositionInfo(ctx)
+	if err != nil {
+		return false, fmt.Errorf("get positions: %w", err)
+	}
+
+	if len(info.Positions) >= 1 {
+		return false, ErrPositionAlreadyExist
+	}
+
+	for _, info := range info.Positions {
+		if string(info.Symbol) == ticker {
+			return false, ErrPositionAlreadyExist
+		}
+	}
+
+	respOrders, err := s.Provider.GetOpenClosedOrdersByTicker(ctx, ticker)
+	if err != nil {
+		return false, fmt.Errorf("get orders: %w", err)
+	}
+
+	if len(respOrders.Orders) >= 1 {
+		return false, ErrOrderAlreadyExist
+	}
+
+	for _, order := range respOrders.Orders {
+		if order.Symbol == ticker {
+			return false, ErrOrderAlreadyExist
+		}
+	}
+
+	return true, nil
 }

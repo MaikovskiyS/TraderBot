@@ -16,12 +16,9 @@ type BybitConfig struct {
 func LoadBybitConfig() (*BybitConfig, error) {
 	var cfg BybitConfig
 
-	err := godotenv.Load()
-	if err != nil {
-		return nil, fmt.Errorf("error loading .env file: %w", err)
-	}
+	godotenv.Load()
 
-	err = env.Parse(&cfg)
+	err := env.Parse(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("error parse to cfg: %w", err)
 	}
