@@ -10,3 +10,9 @@ type OrderBook struct {
 	Bids   []OrderbookBidAsk
 	Asks   []OrderbookBidAsk
 }
+
+/*
+func CalculateStopLoss(orderBook OrderBook, pivotPrice float64, isLong bool, rangeLimit float64) (float64, error) {
+
+}
+*/

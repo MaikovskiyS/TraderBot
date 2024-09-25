@@ -18,7 +18,9 @@ func (s *tradingService) ManageOrders(ctx context.Context) error {
 		return fmt.Errorf("get open orders: %w", err)
 	}
 
-	if ordersResp.Orders == nil || len(ordersResp.Orders) == 0 {
+	s.Log.Debug().Int("orders len in manage", len(ordersResp.Orders))
+
+	if ordersResp.Orders == nil || len(ordersResp.Orders) == 0 || len(ordersResp.Orders) > 1 {
 		return nil
 	}
 

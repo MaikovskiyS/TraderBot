@@ -47,7 +47,7 @@ func (p *BybitProvider) GetBalance(ctx context.Context) (float64, error) {
 	}
 
 	if resp.Result.List == nil {
-		return 0, ErrInvalidResponseType
+		return 0, fmt.Errorf("get balance: %w", ErrInvalidResponseType)
 	}
 
 	return convertStrToFloat(resp.Result.List[0].Coin[0].WalletBalance), nil
